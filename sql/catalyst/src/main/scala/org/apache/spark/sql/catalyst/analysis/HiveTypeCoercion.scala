@@ -580,8 +580,8 @@ trait HiveTypeCoercion {
         })
         rt match {
           case Some(finaldt) => Coalesce(es.map(Cast(_, finaldt)))
-          case None =>
-            sys.error(s"Could not determine return type of Coalesce for ${types.mkString(",")}")
+          case None => Coalesce(es.map(Cast(_, StringType)))
+            //sys.error(s"Could not determine return type of Coalesce for ${types.mkString(",")}")
         }
     }
   }
