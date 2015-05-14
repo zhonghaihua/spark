@@ -199,7 +199,7 @@ private[spark] class TieredDiskMerger[K, C](
           val (tmpBlockId, file) = blockManager.diskBlockManager.createTempShuffleBlock()
           val curWriteMetrics = new ShuffleWriteMetrics()
           var writer =
-            blockManager.getDiskWriter(tmpBlockId, file, ser, fileBufferSize, curWriteMetrics)
+            blockManager.getDiskWriter(tmpBlockId, file, ser.newInstance(), fileBufferSize, curWriteMetrics)
           var success = false
 
           try {

@@ -63,7 +63,6 @@ private[spark] class SortShuffleReader[K, C](
   private val conf = SparkEnv.get.conf
   private val blockManager = SparkEnv.get.blockManager
   private val ser = Serializer.getSerializer(dep.serializer)
-  private val serinstance = Serializer.getSerializer(dep.serializer).newInstance()
   private val shuffleMemoryManager = SparkEnv.get.shuffleMemoryManager
 
   private val fileBufferSize = conf.getInt("spark.shuffle.file.buffer.kb", 32) * 1024
@@ -256,7 +255,8 @@ private[spark] class SortShuffleReader[K, C](
     val partialMergedItr =
       MergeUtil.mergeSort(itrGroup, keyComparator, dep.keyOrdering, dep.aggregator)
     val curWriteMetrics = new ShuffleWriteMetrics()
-    var writer = blockManager.getDiskWriter(tmpBlockId, file, serinstance, fileBufferSize, curWriteMetrics)
+    var writer = blockManager.getDiskWriter(tmpBlockId, file, ser.newInstance(),
+      fileBufferSize, curWriteMetrics)
     var success = false
 
     try {
