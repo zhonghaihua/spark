@@ -139,7 +139,7 @@ final class ShuffleRawBlockFetcherIterator(
 
   private[this] val shuffleMetrics = context.taskMetrics.createShuffleReadMetricsForDependency()
 
-  private[this] val serializerInstance: SerializerInstance = serializer.newInstance()
+  //private[this] val serializerInstance: SerializerInstance = serializer.newInstance()
 
   /**
    * Whether the iterator is still active. If isZombie is true, the callback interface will no
