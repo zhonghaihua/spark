@@ -28,7 +28,7 @@ import scala.util.{Failure, Success, Try}
 import org.apache.spark._
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
-import org.apache.spark.serializer.Serializer
+import org.apache.spark.serializer.{SerializerInstance, Serializer}
 import org.apache.spark.shuffle.{BaseShuffleHandle, FetchFailedException, ShuffleReader}
 import org.apache.spark.storage._
 import org.apache.spark.util.{CompletionIterator, Utils}
@@ -62,7 +62,7 @@ private[spark] class SortShuffleReader[K, C](
   private val dep = handle.dependency
   private val conf = SparkEnv.get.conf
   private val blockManager = SparkEnv.get.blockManager
-  private val ser = Serializer.getSerializer(dep.serializer)
+  private val ser = Serializer.getSerializer(dep.serializer).newInstance()
   private val shuffleMemoryManager = SparkEnv.get.shuffleMemoryManager
 
   private val fileBufferSize = conf.getInt("spark.shuffle.file.buffer.kb", 32) * 1024
