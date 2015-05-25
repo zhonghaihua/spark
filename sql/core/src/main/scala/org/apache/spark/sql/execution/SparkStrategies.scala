@@ -94,8 +94,21 @@ private[sql] abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
       // And for outer join, we can not put conditions outside of the join
       case ExtractEquiJoinKeys(joinType, leftKeys, rightKeys, condition, left, right)
         if sqlContext.conf.sortMergeJoinEnabled =>
-        joins.SortMergeJoin(
-          leftKeys, rightKeys, joinType, planLater(left), planLater(right), condition) :: Nil
+        joinType match {
+          case LeftOuter
+            if sqlContext.conf.autoBroadcastJoinThreshold > 0 &&
+              right.statistics.sizeInBytes <= sqlContext.conf.autoBroadcastJoinThreshold =>
+            joins.BroadcastHashOuterJoin(
+              leftKeys, rightKeys, joinType, condition, planLater(left), planLater(right)) :: Nil
+          case RightOuter
+            if sqlContext.conf.autoBroadcastJoinThreshold > 0 &&
+              left.statistics.sizeInBytes <= sqlContext.conf.autoBroadcastJoinThreshold =>
+            joins.BroadcastHashOuterJoin(
+              leftKeys, rightKeys, joinType, condition, planLater(left), planLater(right)) :: Nil
+          case _ =>
+            joins.SortMergeJoin(
+              leftKeys, rightKeys, joinType, planLater(left), planLater(right), condition) :: Nil
+        }
 
       case ExtractEquiJoinKeys(Inner, leftKeys, rightKeys, condition, left, right) =>
         val buildSide =
