@@ -48,6 +48,7 @@ private[spark] object SQLConf {
   // considered hints and may be ignored by future versions of Spark SQL.
   val EXTERNAL_SORT = "spark.sql.planner.externalSort"
   val SORTMERGE_JOIN = "spark.sql.planner.sortMergeJoin"
+  val PARTITIAL_AGGREGATION="spark.sql.partialAggregation.enable"
 
   // This is only used for the thriftserver
   val THRIFTSERVER_POOL = "spark.sql.thriftserver.scheduler.pool"
@@ -137,6 +138,11 @@ private[sql] class SQLConf extends Serializable {
    * to HashJoin.
    */
   private[spark] def sortMergeJoinEnabled: Boolean = getConf(SORTMERGE_JOIN, "false").toBoolean
+
+  /**
+   * The HashAggregation of will be not not enable when `partAggregationEnabled` is false
+   */
+  private[spark] def partAggregationEnabled: Boolean = getConf(PARTITIAL_AGGREGATION,"true").toBoolean
 
   /**
    * When set to true, Spark SQL will use the Scala compiler at runtime to generate custom bytecode
