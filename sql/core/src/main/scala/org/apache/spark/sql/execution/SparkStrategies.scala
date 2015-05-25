@@ -145,6 +145,10 @@ private[sql] abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       // Aggregations that can be performed in two phases, before and after the shuffle.
 
+      case logical.Aggregate(group, agg, child)
+          if !sparkContext.conf.getBoolean("spark.sql.partialAggregation.enable" ,true) =>
+        execution.Aggregate(partial = false, group, agg, planLater(child)) :: Nil
+
       // Cases where all aggregates can be codegened.
       case PartialAggregation(
              namedGroupingAttributes,
