@@ -18,7 +18,6 @@
 package org.apache.spark.network.sasl;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 import com.google.common.collect.Lists;
 import org.junit.After;
@@ -38,7 +37,6 @@ import org.apache.spark.network.server.OneForOneStreamManager;
 import org.apache.spark.network.server.RpcHandler;
 import org.apache.spark.network.server.StreamManager;
 import org.apache.spark.network.server.TransportServer;
-import org.apache.spark.network.server.TransportServerBootstrap;
 import org.apache.spark.network.shuffle.ExternalShuffleBlockHandler;
 import org.apache.spark.network.util.SystemPropertyConfigProvider;
 import org.apache.spark.network.util.TransportConf;
@@ -74,11 +72,10 @@ public class SaslIntegrationSuite {
   @BeforeClass
   public static void beforeAll() throws IOException {
     SecretKeyHolder secretKeyHolder = new TestSecretKeyHolder("good-key");
+    SaslRpcHandler handler = new SaslRpcHandler(new TestRpcHandler(), secretKeyHolder);
     conf = new TransportConf(new SystemPropertyConfigProvider());
-    context = new TransportContext(conf, new TestRpcHandler());
-
-    TransportServerBootstrap bootstrap = new SaslServerBootstrap(conf, secretKeyHolder);
-    server = context.createServer(Arrays.asList(bootstrap));
+    context = new TransportContext(conf, handler);
+    server = context.createServer();
   }
 
 

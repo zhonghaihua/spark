@@ -172,14 +172,12 @@ public class TransportClientFactory implements Closeable {
       .option(ChannelOption.ALLOCATOR, pooledAllocator);
 
     final AtomicReference<TransportClient> clientRef = new AtomicReference<TransportClient>();
-    final AtomicReference<Channel> channelRef = new AtomicReference<Channel>();
 
     bootstrap.handler(new ChannelInitializer<SocketChannel>() {
       @Override
       public void initChannel(SocketChannel ch) {
         TransportChannelHandler clientHandler = context.initializePipeline(ch);
         clientRef.set(clientHandler.getClient());
-        channelRef.set(ch);
       }
     });
 
@@ -194,7 +192,6 @@ public class TransportClientFactory implements Closeable {
     }
 
     TransportClient client = clientRef.get();
-    Channel channel = channelRef.get();
     assert client != null : "Channel future completed successfully with null client";
 
     // Execute any client bootstraps synchronously before marking the Client as successful.
@@ -202,7 +199,7 @@ public class TransportClientFactory implements Closeable {
     logger.debug("Connection to {} successful, running bootstraps...", address);
     try {
       for (TransportClientBootstrap clientBootstrap : clientBootstraps) {
-        clientBootstrap.doBootstrap(client, channel);
+        clientBootstrap.doBootstrap(client);
       }
     } catch (Exception e) { // catch non-RuntimeExceptions too as bootstrap may be written in Scala
       long bootstrapTimeMs = (System.nanoTime() - preBootstrap) / 1000000;

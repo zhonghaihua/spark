@@ -20,7 +20,6 @@ package org.apache.spark.network.shuffle;
 import java.io.IOException;
 import java.util.List;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +46,6 @@ public class ExternalShuffleClient extends ShuffleClient {
 
   private final TransportConf conf;
   private final boolean saslEnabled;
-  private final boolean saslEncryptionEnabled;
   private final SecretKeyHolder secretKeyHolder;
 
   protected TransportClientFactory clientFactory;
@@ -60,15 +58,10 @@ public class ExternalShuffleClient extends ShuffleClient {
   public ExternalShuffleClient(
       TransportConf conf,
       SecretKeyHolder secretKeyHolder,
-      boolean saslEnabled,
-      boolean saslEncryptionEnabled) {
-    Preconditions.checkArgument(
-      !saslEncryptionEnabled || saslEnabled,
-      "SASL encryption can only be enabled if SASL is also enabled.");
+      boolean saslEnabled) {
     this.conf = conf;
     this.secretKeyHolder = secretKeyHolder;
     this.saslEnabled = saslEnabled;
-    this.saslEncryptionEnabled = saslEncryptionEnabled;
   }
 
   protected void checkInit() {
@@ -81,7 +74,7 @@ public class ExternalShuffleClient extends ShuffleClient {
     TransportContext context = new TransportContext(conf, new NoOpRpcHandler());
     List<TransportClientBootstrap> bootstraps = Lists.newArrayList();
     if (saslEnabled) {
-      bootstraps.add(new SaslClientBootstrap(conf, appId, secretKeyHolder, saslEncryptionEnabled));
+      bootstraps.add(new SaslClientBootstrap(conf, appId, secretKeyHolder));
     }
     clientFactory = context.createClientFactory(bootstraps);
   }

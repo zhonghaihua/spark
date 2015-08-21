@@ -17,8 +17,6 @@
 
 package org.apache.spark.network.client;
 
-import io.netty.channel.Channel;
-
 /**
  * A bootstrap which is executed on a TransportClient before it is returned to the user.
  * This enables an initial exchange of information (e.g., SASL authentication tokens) on a once-per-
@@ -30,5 +28,5 @@ import io.netty.channel.Channel;
  */
 public interface TransportClientBootstrap {
   /** Performs the bootstrapping operation, throwing an exception on failure. */
-  void doBootstrap(TransportClient client, Channel channel) throws RuntimeException;
+  public void doBootstrap(TransportClient client) throws RuntimeException;
 }

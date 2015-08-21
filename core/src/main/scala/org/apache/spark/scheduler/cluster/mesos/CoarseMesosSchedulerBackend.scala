@@ -107,8 +107,7 @@ private[spark] class CoarseMesosSchedulerBackend(
       Some(new MesosExternalShuffleClient(
         SparkTransportConf.fromSparkConf(conf),
         securityManager,
-        securityManager.isAuthenticationEnabled(),
-        securityManager.isSaslEncryptionEnabled()))
+        securityManager.isAuthenticationEnabled()))
     } else {
       None
     }
