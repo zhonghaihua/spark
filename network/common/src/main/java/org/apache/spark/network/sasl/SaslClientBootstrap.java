@@ -17,12 +17,8 @@
 
 package org.apache.spark.network.sasl;
 
-import javax.security.sasl.Sasl;
-import javax.security.sasl.SaslException;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,24 +33,14 @@ import org.apache.spark.network.util.TransportConf;
 public class SaslClientBootstrap implements TransportClientBootstrap {
   private final Logger logger = LoggerFactory.getLogger(SaslClientBootstrap.class);
 
-  private final boolean encrypt;
   private final TransportConf conf;
   private final String appId;
   private final SecretKeyHolder secretKeyHolder;
 
   public SaslClientBootstrap(TransportConf conf, String appId, SecretKeyHolder secretKeyHolder) {
-    this(conf, appId, secretKeyHolder, false);
-  }
-
-  public SaslClientBootstrap(
-      TransportConf conf,
-      String appId,
-      SecretKeyHolder secretKeyHolder,
-      boolean encrypt) {
     this.conf = conf;
     this.appId = appId;
     this.secretKeyHolder = secretKeyHolder;
-    this.encrypt = encrypt;
   }
 
   /**
@@ -63,8 +49,8 @@ public class SaslClientBootstrap implements TransportClientBootstrap {
    * due to mismatch.
    */
   @Override
-  public void doBootstrap(TransportClient client, Channel channel) {
-    SparkSaslClient saslClient = new SparkSaslClient(appId, secretKeyHolder, encrypt);
+  public void doBootstrap(TransportClient client) {
+    SparkSaslClient saslClient = new SparkSaslClient(appId, secretKeyHolder);
     try {
       byte[] payload = saslClient.firstToken();
 
@@ -76,26 +62,13 @@ public class SaslClientBootstrap implements TransportClientBootstrap {
         byte[] response = client.sendRpcSync(buf.array(), conf.saslRTTimeoutMs());
         payload = saslClient.response(response);
       }
-
-      if (encrypt) {
-        if (!SparkSaslServer.QOP_AUTH_CONF.equals(saslClient.getNegotiatedProperty(Sasl.QOP))) {
-          throw new RuntimeException(
-            new SaslException("Encryption requests by negotiated non-encrypted connection."));
-        }
-        SaslEncryption.addToChannel(channel, saslClient, conf.maxSaslEncryptedBlockSize());
-        saslClient = null;
-        logger.debug("Channel {} configured for SASL encryption.", client);
-      }
     } finally {
-      if (saslClient != null) {
-        try {
-          // Once authentication is complete, the server will trust all remaining communication.
-          saslClient.dispose();
-        } catch (RuntimeException e) {
-          logger.error("Error while disposing SASL client", e);
-        }
+      try {
+        // Once authentication is complete, the server will trust all remaining communication.
+        saslClient.dispose();
+      } catch (RuntimeException e) {
+        logger.error("Error while disposing SASL client", e);
       }
     }
   }
-
 }

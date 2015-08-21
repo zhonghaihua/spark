@@ -47,9 +47,8 @@ public class MesosExternalShuffleClient extends ExternalShuffleClient {
   public MesosExternalShuffleClient(
       TransportConf conf,
       SecretKeyHolder secretKeyHolder,
-      boolean saslEnabled,
-      boolean saslEncryptionEnabled) {
-    super(conf, secretKeyHolder, saslEnabled, saslEncryptionEnabled);
+      boolean saslEnabled) {
+    super(conf, secretKeyHolder, saslEnabled);
   }
 
   public void registerDriverWithShuffleService(String host, int port) throws IOException {

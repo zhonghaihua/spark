@@ -19,12 +19,10 @@ package org.apache.spark.deploy
 
 import java.util.concurrent.CountDownLatch
 
-import scala.collection.JavaConversions._
-
 import org.apache.spark.{Logging, SparkConf, SecurityManager}
 import org.apache.spark.network.TransportContext
 import org.apache.spark.network.netty.SparkTransportConf
-import org.apache.spark.network.sasl.SaslServerBootstrap
+import org.apache.spark.network.sasl.SaslRpcHandler
 import org.apache.spark.network.server.TransportServer
 import org.apache.spark.network.shuffle.ExternalShuffleBlockHandler
 import org.apache.spark.network.util.TransportConf
@@ -46,8 +44,12 @@ class ExternalShuffleService(sparkConf: SparkConf, securityManager: SecurityMana
   private val useSasl: Boolean = securityManager.isAuthenticationEnabled()
 
   private val transportConf = SparkTransportConf.fromSparkConf(sparkConf, numUsableCores = 0)
-  private val blockHandler = newShuffleBlockHandler(transportConf)
-  private val transportContext: TransportContext = new TransportContext(transportConf, blockHandler)
+
+  private val blockHandler = new ExternalShuffleBlockHandler(transportConf)
+  private val transportContext: TransportContext = {
+    val handler = if (useSasl) new SaslRpcHandler(blockHandler, securityManager) else blockHandler
+    new TransportContext(transportConf, handler)
+  }
 
   private var server: TransportServer = _
 
@@ -67,13 +69,7 @@ class ExternalShuffleService(sparkConf: SparkConf, securityManager: SecurityMana
   def start() {
     require(server == null, "Shuffle server already started")
     logInfo(s"Starting shuffle service on port $port with useSasl = $useSasl")
-    val bootstraps =
-      if (useSasl) {
-        Seq(new SaslServerBootstrap(transportConf, securityManager))
-      } else {
-        Nil
-      }
-    server = transportContext.createServer(port, bootstraps)
+    server = transportContext.createServer(port)
   }
 
   /** Clean up all shuffle files associated with an application that has exited. */
