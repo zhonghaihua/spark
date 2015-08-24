@@ -405,7 +405,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    * @return whether the kill request is acknowledged.
    */
   final override def killExecutors(executorIds: Seq[String]): Boolean = synchronized {
-    killExecutors(executorIds, replace = false)
+    killExecutors(executorIds, replace = false, force = false)
   }
 
   /**
@@ -415,7 +415,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    * @param replace whether to replace the killed executors with new ones
    * @return whether the kill request is acknowledged.
    */
-  final def killExecutors(executorIds: Seq[String], replace: Boolean): Boolean = synchronized {
+  final def killExecutors(
+      executorIds: Seq[String],
+      replace: Boolean,
+      force: Boolean): Boolean = synchronized {
     logInfo(s"Requesting to kill executor(s) ${executorIds.mkString(", ")}")
     val (knownExecutors, unknownExecutors) = executorIds.partition(executorDataMap.contains)
     unknownExecutors.foreach { id =>
@@ -424,17 +427,26 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
     // If an executor is already pending to be removed, do not kill it again (SPARK-9795)
     val executorsToKill = knownExecutors.filter { id => !executorsPendingToRemove.contains(id) }
-    executorsPendingToRemove ++= executorsToKill
 
+    val idleExecutors = {
+      if (force) {
+        executorsToKill
+      } else {
+        executorsToKill.filter(executor =>
+          !scheduler.taskIdToExecutorId.exists(_._2 == executor))
+      }
+    }
     // If we do not wish to replace the executors we kill, sync the target number of executors
     // with the cluster manager to avoid allocating new ones. When computing the new target,
     // take into account executors that are pending to be added or removed.
     if (!replace) {
       doRequestTotalExecutors(
-        numExistingExecutors + numPendingExecutors - executorsPendingToRemove.size)
+        numExistingExecutors + numPendingExecutors - idleExecutors.size)
     }
 
-    doKillExecutors(executorsToKill)
+    executorsPendingToRemove ++= idleExecutors
+    // return false: there has some busyExecutors or killing certain executor failed
+    doKillExecutors(idleExecutors) && idleExecutors.size == executorsToKill.size
   }
 
   /**

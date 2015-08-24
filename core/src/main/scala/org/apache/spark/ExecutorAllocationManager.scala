@@ -264,10 +264,12 @@ private[spark] class ExecutorAllocationManager(
     updateAndSyncNumExecutorsTarget(now)
 
     removeTimes.retain { case (executorId, expireTime) =>
-      val expired = now >= expireTime
+      var expired = now >= expireTime
       if (expired) {
-        initializing = false
-        removeExecutor(executorId)
+        expired = removeExecutor(executorId)
+        if (expired) {
+          initializing = false
+        }
       }
       !expired
     }
