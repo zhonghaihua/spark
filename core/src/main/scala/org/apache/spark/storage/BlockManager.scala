@@ -589,10 +589,25 @@ private[spark] class BlockManager(
   private def doGetRemote(blockId: BlockId, asBlockResult: Boolean): Option[Any] = {
     require(blockId != null, "BlockId is null")
     val locations = Random.shuffle(master.getLocations(blockId))
+    var attemptTimes = 0
     for (loc <- locations) {
       logDebug(s"Getting remote block $blockId from $loc")
-      val data = blockTransferService.fetchBlockSync(
-        loc.host, loc.port, loc.executorId, blockId.toString).nioByteBuffer()
+      val data = try {
+        blockTransferService.fetchBlockSync(
+          loc.host, loc.port, loc.executorId, blockId.toString).nioByteBuffer()
+      } catch {
+        case t: Throwable if attemptTimes < locations.size - 1 =>
+          // Return null when Exception throw, so we can fetch block
+          // from another location if there still have locations
+          attemptTimes += 1
+          logWarning(s"Try $attemptTimes times getting remote block $blockId from $loc failed.", t)
+          null
+        case t: Throwable =>
+          // Throw BlockFetchException wraps the last Exception when
+          // there is no block we can fetch
+          throw new BlockFetchException(s"Failed to fetch block from" +
+            s" ${locations.size} locations. Most recent failure cause:", t)
+      }
 
       if (data != null) {
         if (asBlockResult) {
