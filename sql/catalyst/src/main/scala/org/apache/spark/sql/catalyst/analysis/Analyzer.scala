@@ -977,12 +977,16 @@ class Analyzer(
      * split the expression by given logicalPlan
      */
     private def split(expressions: Seq[Expression], left: LogicalPlan, right: LogicalPlan) = {
+      //split the expressions to otherExpressions and restExpressions
+      //because otherExpression is not AttributeReference
+      val (otherExpressions, restExpressions) =
+        expressions.partition(_.references.size == 0)
       val (leftEvaluateExpressions, rest) =
-        expressions.partition(_.references subsetOf left.outputSet)
-      val (rightEvaluateExpressions, otherExpressions) =
+        restExpressions.partition(_.references subsetOf left.outputSet)
+      val (rightEvaluateExpressions, other) =
         rest.partition(_.references subsetOf right.outputSet)
 
-      (leftEvaluateExpressions, rightEvaluateExpressions, otherExpressions)
+      (leftEvaluateExpressions, rightEvaluateExpressions, otherExpressions ++ other)
     }
 
     private def splitByPredicates(expressions: Expression): Seq[Expression] = {
@@ -1019,7 +1023,7 @@ class Analyzer(
 
         // For now, not pull out nondeterministic from `otherExpressions`
         // which references do not in the left child or right child
-        val (leftExpression, rightExpression, _) =
+        val (leftExpression, rightExpression, otherExpression) =
           split(j.expressions.flatMap(splitByPredicates), j.left, j.right)
 
         val leftNondeterministic = getNondeterministicMap(leftExpression)
