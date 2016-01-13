@@ -77,6 +77,47 @@ class Main {
       System.err.println("========================================");
     }
 
+    // control the resource applied by user
+    boolean resourceControl = !isEmpty(System.getenv("SPARK_RESOURCE_CONTROL"));
+    if (resourceControl) {
+      resourceControl = Boolean.parseBoolean(System.getenv("SPARK_RESOURCE_CONTROL"));
+      if (resourceControl) {
+        if (cmd.contains("--num-executors")) {
+          int index = cmd.indexOf("--num-executors");
+          int numExecutors = Integer.parseInt(cmd.get(index + 1));
+          // default maxExecutors allow user to apply, default is 700
+          int maxExecutors = 700;
+          if (!isEmpty(System.getenv("SPARK_EXECUTOR_NUM_MAX"))) {
+            maxExecutors = Integer.parseInt(System.getenv("SPARK_EXECUTOR_NUM_MAX"));
+          }
+          if (numExecutors > maxExecutors) {
+            throw new Exception("The max num-executors allow you to apply is " + maxExecutors + "\n"
+                    + "Your Spark Command: " + join(" ", cmd));
+          }
+        }
+        if (cmd.contains("--executor-memory")) {
+          int index = cmd.indexOf("--executor-memory");
+          String executorMemory = cmd.get(index + 1).toLowerCase();
+          int executorMem = 0;
+          // default executor max memory allow user to apply, default is 24g
+          int maxExecutorMem = 24;
+          if (executorMemory.length() > 0 && executorMemory.contains("g")) {
+            executorMem = Integer.parseInt(executorMemory.substring(0, executorMemory.indexOf("g")));
+          }
+          if (executorMemory.length() > 0 && executorMemory.contains("m")) {
+            executorMem = (Integer.parseInt(executorMemory.substring(0, executorMemory.indexOf("m"))) / 1024);
+          }
+          if (!isEmpty(System.getenv("SPARK_EXECUTOR_MEM_MAX"))) {
+            maxExecutorMem = Integer.parseInt(System.getenv("SPARK_EXECUTOR_MEM_MAX"));
+          }
+          if (executorMem > maxExecutorMem) {
+            throw new Exception("The max executor-memory allow you to apply is " + maxExecutorMem + "g \n"
+                    + "Your Spark Command: " + join(" ", cmd));
+          }
+        }
+      }
+    }
+
     if (isWindows()) {
       // When printing the usage message, we can't use "cmd /v" since that prevents the env
       // variable from being seen in the caller script. So do not call prepareWindowsCommand().
