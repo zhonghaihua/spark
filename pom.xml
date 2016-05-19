@@ -324,6 +324,14 @@
   </pluginRepositories>
   <dependencies>
     <!--
+      This is bdp jdq, the custom kafka in JD.
+    -->
+    <dependency>
+      <groupId>com.jd.bdp</groupId>
+      <artifactId>jdq</artifactId>
+      <version>2.0.3-SNAPSHOT</version>
+    </dependency>
+    <!--
       This is a dummy dependency that is used along with the shading plug-in
       to create effective poms on publishing (see SPARK-3812).
     -->

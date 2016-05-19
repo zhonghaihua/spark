@@ -20,6 +20,9 @@ package org.apache.spark.streaming.kafka
 import java.lang.{Integer => JInt, Long => JLong}
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
+import org.apache.spark.streaming.kafka.jdq.JDQKafkaInputDStream
+import org.apache.spark.streaming.kafka.jdq.decoder.JDQStringDecoder
+
 import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
 
@@ -150,6 +153,114 @@ object KafkaUtils {
 
     createStream[K, V, U, T](
       jssc.ssc, kafkaParams.toMap, Map(topics.mapValues(_.intValue()).toSeq: _*), storageLevel)
+  }
+
+  /**
+   * Create an input Stream that pulls message from jdq
+   * @param ssc           StreamingContext object
+   * @param kafkaParams   Map of kafka configuration parameters,
+   * @param topics        Map of (topic_name -> numPartitions) to consume. Each partition is consumed
+   *                      in its own thread
+   * @param storageLevel  Storage level to use for storing the received objects
+   *                      (default: StorageLevel.MEMORY_AND_DISK_SER_2)
+   * @return
+   */
+  def createJDQStream(
+      ssc: StreamingContext,
+      kafkaParams: Map[String, String],
+      topics: Map[String, Int],
+      storageLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK_SER_2
+      ): ReceiverInputDStream[(String, String)] = {
+    createJDQStream[String, String, JDQStringDecoder, JDQStringDecoder](ssc, kafkaParams, topics,
+      storageLevel, new JDQStringDecoder(), new JDQStringDecoder())
+  }
+
+  /**
+   * Create an input Stream that pulls message from jdq
+   * @param ssc           StreamingContext object
+   * @param kafkaParams   Map of kafka configuration parameters,
+   *                      see http://kafka.apache.org/08/configuration.html
+   * @param topics        Map of (topic_name -> numPartitions) to consume. Each partition is consumed
+   *                      in its own thread
+   * @param storageLevel  Storage level to use for storing the received objects
+   *                      (default: StorageLevel.MEMORY_AND_DISK_SER_2)
+   * @param keyDecoder    The key decoder, the type of the key after decoder should same to [k]
+   * @param valueDecoder  The value decoder, the type of the value after decoder should same to [V]
+   * @tparam K            The class type of key
+   * @tparam V            The class type of value
+   * @tparam U            The decoder class of key
+   * @tparam T            The decoder class of value
+   * @return
+   */
+  def createJDQStream[K: ClassTag, V: ClassTag, U <: Decoder[_]: ClassTag, T <: Decoder[_]: ClassTag](
+      ssc: StreamingContext,
+      kafkaParams: Map[String, String],
+      topics: Map[String, Int],
+      storageLevel: StorageLevel,
+      keyDecoder: U,
+      valueDecoder: T
+      ): ReceiverInputDStream[(K, V)] = {
+    val walEnabled = ssc.conf.getBoolean("spark.streaming.receiver.writeAheadLog.enable", false)
+    val offsetCommitMode = ssc.conf.getBoolean("spark.offset.commitAsync", true)
+    new JDQKafkaInputDStream[K, V, U, T](ssc, kafkaParams, topics, walEnabled, offsetCommitMode, storageLevel)
+  }
+
+  /**
+   * Create an input Stream that pulls message from jdq
+   * @param jssc          JavaStreamingContext object
+   * @param kafkaParams   Map of kafka configuration parameters,
+   *                      see http://kafka.apache.org/08/configuration.html
+   * @param topics        Map of (topic_name -> numPartitions) to consume. Each partition is consumed
+   *                      in its own thread
+   * @param storageLevel  Storage level to use for storing the received objects
+   *                      (default: StorageLevel.MEMORY_AND_DISK_SER_2)
+   * @return
+   */
+  def createJDQStream(
+      jssc: JavaStreamingContext,
+      kafkaParams: JMap[String, String],
+      topics: JMap[String, JInt],
+      storageLevel: StorageLevel
+      ): JavaPairReceiverInputDStream[String, String] = {
+    createJDQStream(jssc.ssc, kafkaParams.toMap, Map(topics.mapValues(_.intValue()).toSeq: _*), storageLevel)
+  }
+
+  /**
+   * Create an input Stream that pulls message from jdq
+   * @param jssc                JavaStreamingContext object
+   * @param keyTypeClass        Key type of DStream
+   * @param valueTypeClass      value type of DStream
+   * @param keyDecoderClass     Type of kafka key decoder
+   * @param valueDecoderClass   Type of kafka value decoder
+   * @param kafkaParams         Map of kafka configuration parameters,
+   *                            see http://kafka.apache.org/08/configuration.html
+   * @param topics              Map of (topic_name -> numPartitions) to consume. Each partition is consumed
+   *                            in its own thread
+   * @param storageLevel        Storage level to use for storing the received objects
+   * @param keyDecoder          The key decoder, the type of the key after decoder should same to [k]
+   * @param valueDecoder        The value decoder, the type of the key after decoder should same to [k]
+   * @return
+   */
+  def createJDQStream[K, V, U <: Decoder[_], T <: Decoder[_]](
+      jssc: JavaStreamingContext,
+      keyTypeClass: Class[K],
+      valueTypeClass: Class[V],
+      keyDecoderClass: Class[U],
+      valueDecoderClass: Class[T],
+      kafkaParams: JMap[String, String],
+      topics: JMap[String, JInt],
+      storageLevel: StorageLevel,
+      keyDecoder: U,
+      valueDecoder: T
+      ): JavaPairReceiverInputDStream[K, V] = {
+    implicit val keyCmt: ClassTag[K] = ClassTag(keyTypeClass)
+    implicit val valueCmt: ClassTag[V] = ClassTag(valueTypeClass)
+
+    implicit val keyCmd: ClassTag[U] = ClassTag(keyDecoderClass)
+    implicit val valueCmd: ClassTag[T] = ClassTag(valueDecoderClass)
+
+    createJDQStream[K, V, U, T](jssc.ssc, kafkaParams.toMap,
+      Map(topics.mapValues(_.intValue()).toSeq: _*), storageLevel, keyDecoder, valueDecoder)
   }
 
   /** get leaders for the given offset ranges, or throw an exception */
