@@ -154,8 +154,14 @@ private[hive] object SparkSQLCLIDriver extends Logging {
         s"${sessionState.database}")
     }
 
-    // Execute -i init files (always in silent mode)
-    cli.processInitFiles(sessionState)
+    // user-defined args,controlling that whether to load .hiverc file,default value is "true"
+    val isLoadHivercFile = SparkSQLEnv.sparkContext.getConf.getBoolean("spark.isLoadHivercFile", true);
+    // if initFiles.size != 0, indicate that '-i' option is used, so execute the method,
+    // if initFiles.size == 0, so whether to loadHivercFile is decided by 'isLoadHivercFile'
+    if(sessionState.initFiles.size() != 0 || isLoadHivercFile) {
+      // Execute -i init files (always in silent mode)
+      cli.processInitFiles(sessionState)
+    }
 
     if (sessionState.execString != null) {
       System.exit(cli.processLine(sessionState.execString))

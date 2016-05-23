@@ -19,7 +19,11 @@ package org.apache.spark.sql.hive.thriftserver
 
 import java.io.PrintStream
 
+import com.sun.org.apache.xml.internal.security.utils.Base64
+
 import scala.collection.JavaConverters._
+
+import org.apache.hadoop.hive.ql.session.SessionState
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
@@ -45,8 +49,91 @@ private[hive] object SparkSQLEnv extends Logging {
         .getOption("spark.app.name")
         .filterNot(_ == classOf[SparkSQLCLIDriver].getName)
 
+      //yarn applicationName format of jd-spark
+      //begin
+      val BUFFALO = "BUFFALO"
+      val GATEONE = "GATEONE"
+      val CLI = "CLI"
+      val IDE = "IDE"
+      def decrypt(data: String, key: String): String = {
+        val k = (new String(Base64.decode(key))).toInt
+        val bData: Array[Byte] = data.getBytes()
+        var n = data.getBytes().length
+        if ((n%2)!= 0) return ""
+        n = n/2
+        val buff: Array[Byte] = new Array[Byte](n)
+        for (i <- 0 until buff.length) {
+          buff(i) = ((n>>(i<<3))&0xFF).toByte
+        }
+        var j = 0
+        for (i <- 0 until n) {
+          var data1: Byte = bData(j)
+          var data2: Byte = bData(j+1)
+          j += 2
+          data1 = (data1-65).toByte
+          data2 = (data2-65).toByte
+          val b2 = (data2*16+data1).toByte
+          buff(i) = (b2^k).toByte
+        }
+        return new String(buff)
+      }
+      val key = System.getenv("BEE_PASS")
+      var schedulerId = System.getenv("BEE_BUSINESSID")
+      var sn = System.getenv("BEE_SN")
+      var erp = System.getenv("BEE_USER")
+      var source = System.getenv("BEE_SOURCE")
+      var username = System.getProperty("user.name")
+      var ip = Utils.localHostName()
+      if (key == null || key.isEmpty
+        || BUFFALO.equals(source)
+        || BUFFALO.toLowerCase.equals(source)
+        || CLI.equals(source)
+        || CLI.toLowerCase.equals(source)
+        ||((source != null && !source.isEmpty)
+        && source.contains(IDE) ||source.contains(IDE.toLowerCase))) {
+        if (erp != null && !erp.isEmpty) {
+          if (erp.contains("|")) {
+            username = erp.substring(0, erp.indexOf("|"))
+          }
+        }
+        if (schedulerId == null || schedulerId.isEmpty) {
+          schedulerId = "no"
+        }
+        if (sn == null || sn.isEmpty) {
+          sn = "no"
+        }
+        if (source == null || source.isEmpty) {
+          source = "no"
+        }
+      }
+      else {
+        if (erp != null && !erp.isEmpty) {
+          username = decrypt(erp, key)
+          if (username.contains("|")) {
+            username = username.substring(0, username.indexOf("|"))
+          }
+        }
+        if (schedulerId != null && !schedulerId.isEmpty) {
+          schedulerId = decrypt(schedulerId, key)
+        } else{
+          schedulerId = "no"
+        }
+        if (sn != null && !sn.isEmpty) {
+          sn = decrypt(sn, key)
+        } else {
+          sn = "no"
+        }
+        if (source != null && !source.isEmpty) {
+          source = decrypt(source, key)
+        } else {
+          source = "no"
+        }
+      }
+      val sessionId = SessionState.get().getSessionId()
+      ip = if (ip.isEmpty) "no" else ip
+
       sparkConf
-        .setAppName(maybeAppName.getOrElse(s"SparkSQL::${Utils.localHostName()}"))
+        .setAppName(s"$username,$ip,$source,$schedulerId,$sn,$sessionId")
         .set(
           "spark.serializer",
           maybeSerializer.getOrElse("org.apache.spark.serializer.KryoSerializer"))
