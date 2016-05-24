@@ -242,7 +242,7 @@ object KafkaUtils {
       topics: JMap[String, JInt],
       storageLevel: StorageLevel
       ): JavaPairReceiverInputDStream[String, String] = {
-    createJDQStream(jssc.ssc, kafkaParams.toMap, Map(topics.mapValues(_.intValue()).toSeq: _*), storageLevel)
+    createJDQStream(jssc.ssc, kafkaParams.asScala.toMap, Map(topics.asScala.mapValues(_.intValue()).toSeq: _*), storageLevel)
   }
 
   /**
@@ -279,8 +279,8 @@ object KafkaUtils {
     implicit val keyCmd: ClassTag[U] = ClassTag(keyDecoderClass)
     implicit val valueCmd: ClassTag[T] = ClassTag(valueDecoderClass)
 
-    createJDQStream[K, V, U, T](jssc.ssc, kafkaParams.toMap,
-      Map(topics.mapValues(_.intValue()).toSeq: _*), storageLevel, keyDecoder, valueDecoder)
+    createJDQStream[K, V, U, T](jssc.ssc, kafkaParams.asScala.toMap,
+      Map(topics.asScala.mapValues(_.intValue()).toSeq: _*), storageLevel, keyDecoder, valueDecoder)
   }
 
   /** get leaders for the given offset ranges, or throw an exception */

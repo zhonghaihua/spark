@@ -1870,6 +1870,9 @@
                       <exclude>org.jboss.netty</exclude>
                       <exclude>org.codehaus.groovy</exclude>
                     </excludes>
+                    <includes>
+                        <include>org.apache.kafka:*:jar:*</include>
+                    </includes>
                     <searchTransitive>true</searchTransitive>
                   </bannedDependencies>
                 </rules>
