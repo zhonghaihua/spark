@@ -278,6 +278,7 @@ class HiveContext(sc: SparkContext) extends SQLContext(sc) with Logging {
     if (state == null) {
       SessionState.setCurrentSessionState(tlSession.get().asInstanceOf[SQLSession].sessionState)
     }
+    SessionState.get().setCurrentDatabase(metadataHive.currentDatabase)
     super.parseSql(substitutor.substitute(hiveconf, sql))
   }
 

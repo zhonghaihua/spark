@@ -21,6 +21,10 @@ import java.io.{File, PrintStream}
 import java.util.{Map => JMap}
 import javax.annotation.concurrent.GuardedBy
 
+import org.apache.hadoop.hive.ql.hooks.Entity
+import org.apache.hadoop.hive.ql.plan.HiveOperation
+import org.apache.spark.util.authorization.{AuthType, AuthTools}
+
 import scala.collection.JavaConversions._
 import scala.language.reflectiveCalls
 
@@ -419,7 +423,11 @@ private[hive] class ClientWrapper(
   }
 
   override def listTables(dbName: String): Seq[String] = withHiveState {
-    client.getAllTables(dbName)
+    if (AuthTools.sparkUrmAuthEnabled) {
+      AuthTools.showTablesByPattern(getDatabase(dbName).location)
+    } else {
+      client.getAllTables(dbName)
+    }
   }
 
   /**
@@ -441,6 +449,15 @@ private[hive] class ClientWrapper(
     logDebug(s"Running hiveql '$cmd'")
     if (cmd.toLowerCase.startsWith("set")) { logDebug(s"Changing config: $cmd") }
     try {
+      // return info from urm
+      val op = state.getHiveOperation
+      if (AuthTools.sparkUrmAuthEnabled && op != null) {
+        op match {
+          case HiveOperation.SHOWDATABASES =>
+            return AuthTools.showDatabasesByPattern()
+          case other => other
+        }
+      }
       val cmd_trimmed: String = cmd.trim()
       val tokens: Array[String] = cmd_trimmed.split("\\s+")
       // The remainder of the command.
@@ -455,7 +472,44 @@ private[hive] class ClientWrapper(
             throw new QueryExecutionException(response.getErrorMessage)
           }
           driver.setMaxRows(maxRows)
-
+          // synchronous data to URM
+          if (AuthTools.sparkUrmAuthEnabled && op != null) {
+            val plan = driver.getPlan
+            val writeEntity = plan.getOutputs
+            HiveOperation.valueOf(plan.getOperationName) match {
+              case HiveOperation.CREATEDATABASE =>
+                if (writeEntity != null && writeEntity.size() > 0) {
+                  val db = writeEntity.iterator().next().getDatabase
+                  AuthTools.createOperationUrm(db.getLocationUri, null, AuthType.DATABASE, db.getName, db.getName)
+                }
+              case HiveOperation.CREATETABLE =>
+                if (writeEntity != null && writeEntity.size() > 0) {
+                  val tb = writeEntity.iterator().next().getTable
+                  val db = getDatabase(tb.getDbName)
+                  AuthTools.createOperationUrm(tb.getDataLocation.toString, db.location, AuthType.TABLE, tb.getTableName, tb.getParameters.get("comment"))
+                }
+              case HiveOperation.DROPDATABASE =>
+                if (writeEntity != null && writeEntity.size() > 0) {
+                  val db = writeEntity.iterator().next().getDatabase
+                  AuthTools.dropOperationUrm(db.getLocationUri, AuthType.DATABASE)
+                }
+              case HiveOperation.DROPTABLE =>
+                if (writeEntity != null && writeEntity.size() > 0) {
+                  val tb = writeEntity.filter(w => w.getTyp == Entity.Type.TABLE)
+                  if (tb.size > 0) {
+                    AuthTools.dropOperationUrm(tb.iterator.next().getTable.getDataLocation.toString, AuthType.TABLE)
+                  }
+                }
+              case HiveOperation.ALTERTABLE_RENAME =>
+                if (writeEntity != null && writeEntity.size() > 1) {
+                  val tbsIter = writeEntity.iterator()
+                  val oldTb = tbsIter.next().getTable
+                  val newTb = tbsIter.next().getTable
+                  AuthTools.alterOperationUrm(newTb.getDataLocation.toString, oldTb.getDataLocation.toString)
+                }
+              case other => other
+            }
+          }
           val results = shim.getDriverResults(driver)
           driver.close()
           results

@@ -20,6 +20,8 @@ package org.apache.spark.sql.hive.thriftserver
 import java.io._
 import java.util.{ArrayList => JArrayList, Locale}
 
+import org.apache.spark.util.authorization.AuthTools
+
 import scala.collection.JavaConversions._
 
 import jline.console.ConsoleReader
@@ -80,6 +82,10 @@ private[hive] object SparkSQLCLIDriver extends Logging {
     }
 
     val cliConf = new HiveConf(classOf[SessionState])
+    // if urm enabled,set the authenticator
+    if (AuthTools.sparkUrmAuthEnabled) {
+      cliConf.set(HiveConf.ConfVars.HIVE_AUTHORIZATION_MANAGER.varname, AuthTools.sparkUrmAuthorizationManager)
+    }
     // Override the location of the metastore since this is only used for local execution.
     HiveContext.newTemporaryConfiguration().foreach {
       case (key, value) => cliConf.set(key, value)
@@ -182,6 +188,9 @@ private[hive] object SparkSQLCLIDriver extends Logging {
     CliDriver.getCommandCompleter.foreach((e) => reader.addCompleter(e))
 
     val historyDirectory = System.getProperty("user.home")
+
+    // BDP Authentication
+    if (!AuthTools.loginAuth()) System.exit(-1)
 
     try {
       if (new File(historyDirectory).exists()) {
