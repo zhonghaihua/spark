@@ -451,11 +451,14 @@ private[hive] class ClientWrapper(
     try {
       // return info from urm
       val op = state.getHiveOperation
-      if (AuthTools.sparkUrmAuthEnabled && op != null) {
-        op match {
-          case HiveOperation.SHOWDATABASES =>
-            return AuthTools.showDatabasesByPattern()
-          case other => other
+      if (AuthTools.sparkUrmAuthEnabled) {
+        logInfo(s"=======>HiveOperation:${op.getOperationName}")
+        if (op != null) {
+          op match {
+            case HiveOperation.SHOWDATABASES =>
+              return AuthTools.showDatabasesByPattern()
+            case other => other
+          }
         }
       }
       val cmd_trimmed: String = cmd.trim()

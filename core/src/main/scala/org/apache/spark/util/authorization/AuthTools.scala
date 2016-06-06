@@ -334,7 +334,7 @@ object AuthTools extends Logging {
       val resultJson = JSON.parseObject(result)
       if (!resultJson.getBoolean("success")) {
         checkAndThrowAuthorizationException(
-          JSON.parseArray(resultJson.getString("list"), classOf[String]).asInstanceOf[List[String]],
+          resultJson.getJSONArray("list").toArray().map(s => s.toString).toList,
           dbName, tableName, resultJson.getString("error"))
       }
     } catch {
