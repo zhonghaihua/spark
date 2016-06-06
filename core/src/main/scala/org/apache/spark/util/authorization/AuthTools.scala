@@ -6,10 +6,10 @@ import java.net.{HttpURLConnection, InetAddress, URL, URLEncoder}
 import java.util.regex.Pattern
 
 import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
-import com.sun.org.apache.xml.internal.security.utils.Base64
 import jline.console.ConsoleReader
 import org.apache.hadoop.hive.ql.metadata.{AuthorizationException, HiveException}
 import org.apache.hadoop.hive.ql.security.authorization.Privilege
+import org.apache.spark.util.Base64
 import org.apache.spark.util.authorization.AuthType.AuthType
 import org.apache.spark.{Logging, SparkConf}
 
@@ -95,6 +95,10 @@ object AuthTools extends Logging {
       }
     }
     source.toUpperCase
+  }
+
+  def isNeedCheck(): Boolean = {
+    getSource() == CLI
   }
 
   def getEnv(key: String) = {
@@ -255,6 +259,8 @@ object AuthTools extends Logging {
   def loginAuth(): Boolean = {
     if (!sparkUrmAuthEnabled) {
       true
+    } else if (!isNeedCheck()) {
+      true
     } else {
       val sessionId = getLinuxSessionId()
       // get sessionId md5 code
@@ -389,9 +395,9 @@ object AuthTools extends Logging {
         val (k, v) = e
         paramBuilder.append(s"&$k=")
         if (v.isInstanceOf[JSONArray]) {
-          paramBuilder.append(v.asInstanceOf[JSONArray].asScala.mkString(","))
+          paramBuilder.append(URLEncoder.encode(v.asInstanceOf[JSONArray].asScala.mkString(","), "UTF-8"))
         } else {
-          paramBuilder.append(v)
+          paramBuilder.append(URLEncoder.encode(v.toString, "UTF-8"))
         }
       })
       try {
@@ -418,7 +424,7 @@ object AuthTools extends Logging {
     connection.setDoOutput(true)
     connection.setDoInput(true)
     val out = new OutputStreamWriter(connection.getOutputStream(), "UTF-8")
-    out.write(URLEncoder.encode(data, "UTF-8"))
+    out.write(data)
     out.flush()
     out.close()
     val inputStream = connection.getInputStream
