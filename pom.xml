@@ -2492,6 +2492,14 @@
     </profile>
 
     <profile>
+      <id>hadoop-2.5</id>
+      <properties>
+        <hadoop.version>2.5.1</hadoop.version>
+        <jets3t.version>0.9.3</jets3t.version>
+      </properties>
+    </profile>
+
+    <profile>
       <id>hadoop-2.6</id>
       <properties>
         <hadoop.version>2.6.4</hadoop.version>
